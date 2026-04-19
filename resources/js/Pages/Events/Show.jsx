@@ -1,0 +1,207 @@
+import PublicLayout from '@/Layouts/PublicLayout';
+import { Head, useForm, Link } from '@inertiajs/react';
+import { useRef, useState, useEffect } from 'react';
+import { formatRupiah, parseRupiah } from '@/lib/utils';
+
+export default function EventShow({ auth, event, isParticipant, participationStatus, payments, totalPaid }) {
+    const fileInput = useRef(null);
+    const [filePreview, setFilePreview] = useState(null);
+
+    const { data, setData, post, processing, errors, reset } = useForm({
+        amount: '',
+        proof: null
+    });
+
+    const [displayAmount, setDisplayAmount] = useState('');
+
+    const handleAmountChange = (e) => {
+        const rawValue = parseRupiah(e.target.value);
+        if (/^[0-9]*$/.test(rawValue)) {
+            setDisplayAmount(formatRupiah(rawValue));
+            setData('amount', rawValue);
+        }
+    };
+
+    const handleJoin = (e) => {
+        e.preventDefault();
+        post(route('events.join', event.id));
+    };
+
+    const handlePay = (e) => {
+        e.preventDefault();
+        post(route('payments.store', event.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                reset();
+                setDisplayAmount('');
+                setFilePreview(null);
+                if (fileInput.current) fileInput.current.value = '';
+            }
+        });
+    };
+
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        setData('proof', file);
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => setFilePreview(e.target.result);
+            reader.readAsDataURL(file);
+        } else {
+            setFilePreview(null);
+        }
+    };
+
+    const remainingBudget = Math.max(0, event.budget_per_person - totalPaid);
+    const percentagePaid = Math.min(100, (totalPaid / event.budget_per_person) * 100);
+
+    return (
+        <PublicLayout header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Detail Event</h2>}>
+            <Head title={event.title} />
+
+            <div className="py-12">
+                <div className="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+                    {/* Event Detail Card */}
+                    <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-8">
+                        <div className="mb-2 text-indigo-600 font-bold uppercase tracking-wider">{event.tenant.name}</div>
+                        <h3 className="text-3xl font-bold text-gray-900 mb-4">{event.title}</h3>
+                        
+                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-6 mb-6">
+                            <h4 className="font-semibold border-b pb-2 mb-3">Informasi Acara</h4>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div><span className="text-gray-500">Tanggal Mulai:</span> <span className="font-medium">{new Date(event.start_date).toLocaleString('id-ID')}</span></div>
+                                <div><span className="text-gray-500">Tanggal Selesai:</span> <span className="font-medium">{new Date(event.end_date).toLocaleString('id-ID')}</span></div>
+                                <div>
+                                    <span className="text-gray-500">Target Budget (Per Orang):</span> 
+                                    <span className="font-bold text-lg text-green-600 ml-2">Rp {Number(event.budget_per_person).toLocaleString('id-ID')}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="prose max-w-none text-gray-700 mb-8">
+                            <p className="whitespace-pre-wrap">{event.description}</p>
+                        </div>
+
+                        {!auth.user ? (
+                            <div className="mt-6 border-t pt-6">
+                                <Link
+                                    href={route('login')}
+                                    className="inline-block w-full sm:w-auto text-center bg-gray-800 text-white px-8 py-3 rounded-lg shadow-md hover:bg-gray-700 font-semibold transition"
+                                >
+                                    Login untuk Ikut Serta
+                                </Link>
+                            </div>
+                        ) : !isParticipant ? (
+                            <form onSubmit={handleJoin} className="mt-6 border-t pt-6">
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    className="w-full sm:w-auto bg-indigo-600 text-white px-8 py-3 rounded-lg shadow-md hover:bg-indigo-700 font-semibold transition"
+                                >
+                                    Ikuti Event Ini
+                                </button>
+                            </form>
+                        ) : (
+                            <div className="mt-6 border-t pt-6">
+                                <div className="inline-flex items-center bg-green-50 text-green-700 px-4 py-2 rounded-md border border-green-200 mb-6 font-medium">
+                                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                    Anda sudah terdaftar dalam event ini
+                                </div>
+
+                                {/* Payment Module */}
+                                <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                                    <div className="bg-gray-50 px-6 py-4 border-b">
+                                        <h4 className="font-bold text-gray-800 text-lg">Modul Pembayaran & Cicilan</h4>
+                                        <p className="text-sm text-gray-500">Transfer ke: <span className="font-semibold text-gray-700">{event.tenant.bank_account_info}</span></p>
+                                    </div>
+                                    <div className="p-6">
+                                        {/* Progress Bar */}
+                                        <div className="mb-8">
+                                            <div className="flex justify-between text-sm mb-1">
+                                                <span className="font-medium text-gray-700">Progress Pembayaran (Terkonfirmasi)</span>
+                                                <span className="font-bold text-indigo-600">{percentagePaid.toFixed(0)}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                                <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${percentagePaid}%` }}></div>
+                                            </div>
+                                            <div className="flex justify-between text-xs text-gray-500 mt-2">
+                                                <span>Terkonfirmasi: Rp {totalPaid.toLocaleString('id-ID')}</span>
+                                                <span>Sisa: Rp {remainingBudget.toLocaleString('id-ID')}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            {/* Upload Form */}
+                                            {remainingBudget > 0 && (
+                                                <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
+                                                    <h5 className="font-semibold text-gray-800 mb-4">Upload Bukti Transfer</h5>
+                                                    <form onSubmit={handlePay} className="space-y-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Nominal Transfer (Rp)</label>
+                                                            <input
+                                                                type="text"
+                                                                value={displayAmount}
+                                                                onChange={handleAmountChange}
+                                                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                                placeholder="50.000"
+                                                                required
+                                                            />
+                                                            {errors.amount && <div className="text-red-500 text-sm mt-1">{errors.amount}</div>}
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Foto Resi / Bukti Transfer</label>
+                                                            <input
+                                                                type="file"
+                                                                ref={fileInput}
+                                                                onChange={handlePhotoChange}
+                                                                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                                                accept="image/*"
+                                                                required
+                                                            />
+                                                            {errors.proof && <div className="text-red-500 text-sm mt-1">{errors.proof}</div>}
+                                                        </div>
+                                                        {filePreview && (
+                                                            <div className="mt-2">
+                                                                <img src={filePreview} alt="Preview" className="h-32 object-cover rounded-md border" />
+                                                            </div>
+                                                        )}
+                                                        <button
+                                                            type="submit"
+                                                            disabled={processing}
+                                                            className="w-full bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 disabled:opacity-50 transition"
+                                                        >
+                                                            {processing ? 'Mengunggah...' : 'Kirim Bukti Pembayaran'}
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            )}
+
+                                            {/* History */}
+                                            <div>
+                                                <h5 className="font-semibold text-gray-800 mb-4">Riwayat Pembayaran Anda</h5>
+                                                <div className="space-y-3">
+                                                    {payments.map(payment => (
+                                                        <div key={payment.id} className="border border-gray-100 p-3 rounded bg-white shadow-sm flex justify-between items-center">
+                                                            <div>
+                                                                <div className="font-medium">Rp {Number(payment.amount).toLocaleString('id-ID')}</div>
+                                                                <div className="text-xs text-gray-500">{new Date(payment.payment_date).toLocaleDateString()}</div>
+                                                            </div>
+                                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'VERIFIED' ? 'bg-green-100 text-green-800' : payment.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                {payment.status}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                    {payments.length === 0 && <p className="text-sm text-gray-500 italic">Belum ada riwayat transaksi.</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </PublicLayout>
+    );
+}
