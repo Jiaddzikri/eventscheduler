@@ -12,7 +12,12 @@ export default function EventIndex({ events }) {
                         {events.map(event => (
                             <div key={event.id} className="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-100 hover:shadow-md transition">
                                 <div className="p-6">
-                                    <div className="text-xs font-semibold text-indigo-600 mb-1 uppercase tracking-wider">{event.tenant.name}</div>
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">{event.tenant.name}</div>
+                                        {event.status === 'cancelled' && (
+                                            <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Dibatalkan</span>
+                                        )}
+                                    </div>
                                     <h3 className="text-xl font-bold text-gray-900 mb-2 truncate">{event.title}</h3>
                                     <p className="text-gray-600 text-sm mb-4 line-clamp-3">{event.description}</p>
                                     
