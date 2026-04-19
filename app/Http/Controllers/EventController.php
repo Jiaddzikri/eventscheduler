@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\BalanceTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class EventController extends Controller
@@ -43,6 +45,10 @@ class EventController extends Controller
 
     public function join(Request $request, Event $event)
     {
+        if ($event->status === 'cancelled') {
+            return back()->withErrors(['error' => 'Maaf, event ini sudah dibatalkan dan tidak lagi menerima pendaftaran baru.']);
+        }
+
         $user = $request->user();
         if (!$event->participants()->where('user_id', $user->id)->exists()) {
             $event->participants()->create([
@@ -55,6 +61,10 @@ class EventController extends Controller
 
     public function pay(Request $request, Event $event)
     {
+        if ($event->status === 'cancelled') {
+            return back()->withErrors(['error' => 'Maaf, event ini sudah dibatalkan dan tidak lagi menerima pembayaran.']);
+        }
+
         $request->validate([
             'amount' => 'required|numeric|min:1',
             'proof' => 'required|image|max:2048',
@@ -134,9 +144,52 @@ class EventController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Tenant $tenant, Event $event)
+    public function destroy(Request $request, Tenant $tenant, Event $event)
     {
-        $event->delete();
-        return redirect()->route('tenant.dashboard', $tenant->id)->with('success', 'Event dihapus!');
+        $request->validate([
+            'cancelled_reason' => 'required|string|min:10|max:1000'
+        ]);
+
+        // Check for pending payments
+        $pendingCount = $event->payments()->where('status', 'PENDING')->count();
+        if ($pendingCount > 0) {
+            return back()->withErrors([
+                'cancelled_reason' => "Tidak dapat membatalkan event karena masih ada {$pendingCount} pembayaran yang berstatus PENDING. Silakan verifikasi atau tolak terlebih dahulu."
+            ]);
+        }
+
+        try {
+            DB::transaction(function () use ($request, $event) {
+                // 1. Get all VERIFIED payments
+                $verifiedPayments = $event->payments()->where('status', 'VERIFIED')->get();
+
+                // 2. Refund to balance
+                foreach ($verifiedPayments as $payment) {
+                    $user = $payment->user;
+                    $user->increment('balance', $payment->amount);
+
+                    // 3. Log transaction
+                    BalanceTransaction::create([
+                        'user_id' => $user->id,
+                        'event_id' => $event->id,
+                        'type' => 'refund',
+                        'amount' => $payment->amount,
+                        'description' => "Refund otomatis pembatalan event: {$event->title}",
+                    ]);
+                }
+
+                // 4. Mark event as cancelled
+                $event->update([
+                    'status' => 'cancelled',
+                    'cancelled_reason' => $request->cancelled_reason,
+                    'cancelled_at' => now(),
+                ]);
+            });
+
+            return redirect()->route('tenant.dashboard', $tenant->id)
+                ->with('success', 'Event berhasil dibatalkan dan saldo member telah dikembalikan.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat memproses pembatalan: ' . $e->getMessage()]);
+        }
     }
 }

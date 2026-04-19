@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['tenant_id', 'title', 'description', 'budget_per_person', 'start_date', 'end_date'])]
+#[Fillable(['tenant_id', 'title', 'description', 'budget_per_person', 'start_date', 'end_date', 'status', 'cancelled_reason', 'cancelled_at'])]
 class Event extends Model
 {
     use HasUuids;
@@ -19,6 +19,7 @@ class Event extends Model
             'start_date' => 'datetime',
             'end_date' => 'datetime',
             'budget_per_person' => 'decimal:2',
+            'cancelled_at' => 'datetime',
         ];
     }
 
