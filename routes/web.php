@@ -46,6 +46,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('admin')->name('admin.')->middleware([\App\Http\Middleware\EnsureSuperAdmin::class])->group(function () {
         Route::resource('tenants', \App\Http\Controllers\Admin\TenantController::class)->except(['show']);
         Route::resource('users', \App\Http\Controllers\Admin\UserController::class)->except(['show']);
+        Route::get('events', [\App\Http\Controllers\Admin\EventController::class, 'index'])->name('events.index');
+        Route::get('events/{event}', [\App\Http\Controllers\Admin\EventController::class, 'show'])->name('events.show');
     });
 });
 

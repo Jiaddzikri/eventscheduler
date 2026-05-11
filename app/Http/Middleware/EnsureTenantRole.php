@@ -28,6 +28,11 @@ class EnsureTenantRole
             abort(403, 'Unauthorized.');
         }
 
+        // Super Admin can access any tenant dashboard
+        if ($user->role === 'admin') {
+            return $next($request);
+        }
+
         $tenantUser = $user->tenants()->where('tenant_id', $tenantId)->first();
 
         if (!$tenantUser) {

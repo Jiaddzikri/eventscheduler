@@ -12,7 +12,17 @@ class DashboardController extends Controller
 {
     public function index(Request $request, Tenant $tenant)
     {
-        $userRole = $request->user()->tenants()->where('tenant_id', $tenant->id)->first()->pivot->role;
+        $tenantUser = $request->user()->tenants()->where('tenant_id', $tenant->id)->first();
+        
+        // Handle Super Admin who might not be in the pivot table
+        if ($request->user()->role === 'admin') {
+            $userRole = 'manager'; // Default to manager view for super admins
+        } else {
+            if (!$tenantUser) {
+                abort(403, 'Unauthorized. Anda bukan bagian dari tenant ini.');
+            }
+            $userRole = $tenantUser->pivot->role;
+        }
 
         // Base query for manager: Load events separately
         $events = [];

@@ -121,6 +121,7 @@ export default function UserIndex({ users, tenants, filters }) {
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Identitas</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Global Role</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Akses Komunitas</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-50">
@@ -159,6 +160,14 @@ export default function UserIndex({ users, tenants, filters }) {
                                                     ) : (
                                                         <span className="text-[10px] text-gray-300 italic font-medium">Belum ada akses komunitas</span>
                                                     )}
+                                                </td>
+                                                <td className="px-6 py-5 text-right whitespace-nowrap">
+                                                    <Link 
+                                                        href={route('admin.users.edit', u.id)}
+                                                        className="text-indigo-600 hover:text-indigo-900 text-xs font-bold transition-colors"
+                                                    >
+                                                        Edit
+                                                    </Link>
                                                 </td>
                                             </tr>
                                         ))
